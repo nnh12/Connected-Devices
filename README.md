@@ -34,4 +34,3 @@ This Git Repository for Introduction to Connected Devices with Courseware chapte
 
 ## [Chapter 14: Integrated Authentication and Access Control](Courseware/14.md)
 
-&copy; 2015-2022 LeanDog, Inc. and Nick Barendt
