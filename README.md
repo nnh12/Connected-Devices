@@ -1,6 +1,6 @@
-# Welcome to Introduction to Connected Devices
+# Connected Devices
 
-This Git Repository for Introduction to Connected Devices with Courseware chapter instructions and code.
+This Git Repository for Introduction to Connected Devices with Courseware chapter instructions.
 
 ## [Syllabus](syllabus.md)
 
