@@ -1,0 +1,11 @@
+- name: install our new NGINX Django configuration (with TLS and mqtt auth)
+  become: True
+  template:
+    dest: /etc/nginx/sites-available/lampisite.conf
+    src: 14_lampisite_nginx.conf
+
+- name: restart nginx
+  become: True
+  service:
+    name: nginx
+    state: restarted

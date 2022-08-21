@@ -1,0 +1,12 @@
+---
+# vars file for cloud_mqtt
+
+cache_update_valid_secs: 900
+mqtt_server_identity: lampi_mqtt_server
+
+# 
+mosquitto_git_version_tag: v1.6.9
+mosquitto_working_dir: /home/ubuntu/mosquitto_src
+mosquitto_repo_url: https://github.com/eclipse/mosquitto.git 
+mosquitto_auth_plugin_repo_url: https://github.com/iegomez/mosquitto-go-auth.git
+mosquitto_auth_plugin_git_version_tag: 1.8.2

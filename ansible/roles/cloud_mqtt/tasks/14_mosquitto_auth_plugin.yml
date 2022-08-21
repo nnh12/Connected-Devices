@@ -1,0 +1,149 @@
+- name: remove mosquitto version from debian repo - we need to build a custom version
+  become: True
+  apt:
+    name: mosquitto
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+    state: absent
+
+- name: install dependencies for mosquitto-auth-plugin
+  become: True
+  apt:
+    name: ['libcurl4-openssl-dev', 'libwebsockets15',  'libwebsockets-dev', 'openssl', 'uuid', 'uuid-dev', 'build-essential', 'golang', 'xsltproc', 'docbook-xsl']
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: create working directory for mosquitto auth plugin work
+  file:
+    path: "{{ mosquitto_working_dir}}"
+    state: directory
+
+- name: clone the Mosquitto git repo and checkout the version we need
+  git:
+    repo: "{{ mosquitto_repo_url }}"
+    dest: "{{ mosquitto_working_dir}}/mosquitto"
+    version: "{{ mosquitto_git_version_tag }}"
+
+- name: build mosquitto
+  make:
+    chdir: "{{ mosquitto_working_dir}}/mosquitto"
+    target: binary
+    params: WITH_SERV=no WITH_WEBSOCKETS=yes
+
+- name: build mosquitto docs
+  make:
+    chdir: "{{ mosquitto_working_dir}}/mosquitto"
+    target: docs
+
+- name: install mosquitto
+  become: True
+  make:
+    chdir: "{{ mosquitto_working_dir}}/mosquitto"
+    target: install
+
+- name: install top-level mosquitto configuration file
+  become: True
+  copy:
+    src: 14_mosquitto.conf
+    dest: /etc/mosquitto/mosquitto.conf
+
+- name: create mosquitto group
+  become: True
+  group:
+    name: mosquitto
+  
+- name: create mosquitto user
+  become: True
+  user:
+    name: mosquitto
+    groups: mosquitto
+    shell: /sbin/nologin
+    append: yes
+    create_home: no
+
+- name: make a mosquitto log directory
+  become: True
+  file:
+    path: /var/log/mosquitto
+    group: root
+    owner: mosquitto
+    state: directory
+
+- name: make a mosquitto lib directory
+  become: True
+  file:
+    path: /var/lib/mosquitto
+    group: root
+    owner: mosquitto
+    state: directory
+
+- name: create a plugin directory
+  become: True
+  file:
+    path: /etc/mosquitto/plugins
+    state: directory
+
+### commenting these out - only need to build the binary .so which
+###    can be uploaded to S3 for speed and convenience - takes a long
+###    time to build on a t2.micro
+
+#- name: clone the Mosquitto Auth Plugin repo and checkout the version we want
+#  git:
+#    repo: "{{ mosquitto_auth_plugin_repo_url }}"
+#    dest: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin"
+#    version: "{{ mosquitto_auth_plugin_git_version_tag }}"
+#    force: yes
+
+#- name: build the auth plugin
+#  make:
+#    chdir: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin"
+#    target: all
+
+# using mosquitto 1.6.9 and go-auth plugin 1.8.2
+- name: install the prebuild plugin from S3
+  become: True
+  get_url:
+    url: https://connected-devices.s3.amazonaws.com/go-auth-1.8.2-mosquitto-1.6.9.so
+    mode: u=rwx,g=rx,o=rx
+    dest: /etc/mosquitto/plugins/go-auth.so
+    checksum: md5:7e5c1fa3e905c904bc0d098b2f32d4e2
+
+#- name: copy the plugin to the plugin directory
+#  become: True
+#  copy:
+#    remote_src: True
+#    mode: u=rwx,g=rx,o=rx
+#    src: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin/go-auth.so"
+#    dest: /etc/mosquitto/plugins
+
+- name: install a new mosquitto configuration to use the auth plugin
+  become: True
+  template:
+    src: 14_mqtt_auth_plugin.conf
+    dest: /etc/mosquitto/conf.d/auth_plugin.conf
+
+- name: copy systemd service for our custom version of mosquitto
+  become: True
+  copy:
+    src: 14_mosquitto.service
+    dest: /etc/systemd/system/mosquitto.service 
+    owner: root
+    group: root
+
+#- name: unmask the mosquitto service (the systemd `masked` parameter below fails)
+#  become: True
+#  command: systemctl unmask mosquitto
+
+- name: make sure mosquitto service is unmasked and started
+  become: True
+  systemd:
+    name: mosquitto.service
+    enabled: yes
+    daemon_reload: yes
+    state: restarted
+    masked: no
+
+# this is just for convenience
+- name: install tmux
+  become: True
+  apt:
+    name: tmux
+    cache_valid_time: "{{ cache_update_valid_secs }}"

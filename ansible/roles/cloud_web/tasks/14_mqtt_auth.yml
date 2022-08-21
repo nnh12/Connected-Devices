@@ -1,0 +1,32 @@
+- name: check if mqtt-daemon superuser exists
+  shell: echo "from django.contrib.auth import get_user_model; User=get_user_model(); print(User.objects.filter(username='{{django_mqtt_daemon_username}}').count()>0)" | "{{django_dir}}/manage.py" shell
+  args:
+    chdir: "{{ django_dir }}"
+  environment:
+     DJANGO_SETTINGS_MODULE: "{{django_settings}}"
+  register: superuser_exists
+
+- name: create Django mqtt-daemon superuser
+  django_manage:
+    command: "createsuperuser --noinput --username={{django_mqtt_daemon_username}} --email={{django_mqtt_daemon_email}}"
+    app_path: "{{ django_dir }}"
+  when: superuser_exists.stdout.find('True')==-1
+
+- name: set Django mqtt-daemon  superuser password
+  expect:
+    command: "{{django_dir}}/manage.py changepassword {{django_mqtt_daemon_username}}"
+    responses:
+      (?i)Password: "{{django_mqtt_daemon_password}}"
+      (?i)again: "{{django_mqtt_daemon_password}}"
+
+- name: restart mqtt-daemon
+  become: True
+  supervisorctl:
+    name: mqtt-daemon
+    state: "restarted"
+
+- name: restart uwsgi
+  become: True
+  supervisorctl:
+    name: uwsgi
+    state: "restarted"
